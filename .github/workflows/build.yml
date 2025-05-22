@@ -1,9 +1,16 @@
 name: cmake-build
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Release
+  URL_TO_IDASDK_ZIP: https://vaclive.party/software/ida-pro/releases/download/9.1.250226/idasdk91.zip
+  SHA256_IDASDK_ZIP: 508f690e49ab0415a3f8d422826954ac8d3ae9b92f48121fcd1e53c68bc7e1f2
+  PATH_TO_IDASDK_CONTENT: idasdk91
 
 jobs:
   build:
@@ -11,15 +18,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-22.04
-        - os: macos-12
-        - os: windows-2022
+        - os: ubuntu-latest
+        - os: macos-latest
+        - os: windows-latest
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
       with:
+        repository: google/bindiff
         path: bindiff
+
     - uses: actions/checkout@v4
       with:
         repository: google/binexport
@@ -28,51 +37,64 @@ jobs:
     - name: Install ninja-build tool
       uses: turtlesec-no/get-ninja@1.1.0
 
-    - name: Create Build Environment
-      env:
-        IDASDK_SECRET: ${{ secrets.IDASDK_SECRET }}
-      working-directory: ${{ github.workspace }}
+    - name: Get idasdk
+      if: matrix.os != 'windows-latest'
       shell: bash
       run: |
-        mkdir -p "${{ runner.workspace }}/build" \
-                 ida/idasdk
-        mv binexport/ida/idasdk/idasdk*.gpg \
-           ida/idasdk/
-        binexport/.github/scripts/decrypt_secret.sh
-        unzip -q "${{ runner.workspace }}/build/idasdk_teams82.zip" \
-              -d "${{ runner.workspace }}/build/"
+        mkdir -p build/out build/ida
+        curl -L -o build/idasdk.zip "${{ env.URL_TO_IDASDK_ZIP }}"
+        echo "${{ env.SHA256_IDASDK_ZIP }}  build/idasdk.zip" | sha256sum -c -
+        if [ $? -ne 0 ]; then
+          echo "[!] SHA256 checksum does not match. Aborting."
+          exit 1
+        fi
+        unzip -q build/idasdk.zip -d build/ida/
+
+    - name: Get idasdk (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        mkdir -p build\out build\ida
+        Invoke-WebRequest -Uri "${{ env.URL_TO_IDASDK_ZIP }}" -OutFile "build\idasdk.zip"
+        $sha256 = Get-FileHash -Path "build\idasdk.zip" -Algorithm SHA256
+        if ($sha256.Hash -ne "${{ env.SHA256_IDASDK_ZIP }}") {
+          Write-Host "[!] SHA256 checksum does not match. Aborting."
+          exit 1
+        }
+        Expand-Archive -Path "build\idasdk.zip" -DestinationPath "build\ida\" -Force
 
     - name: Enable Developer Command Prompt (Windows)
-      if: matrix.os == 'windows-2022'
+      if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1.12.1
 
     - name: Enable mold linker (Linux)
-      if: matrix.os == 'ubuntu-22.04'
+      if: matrix.os == 'ubuntu-latest'
       uses: rui314/setup-mold@v1
 
     - name: Configure CMake
-      working-directory: ${{ runner.workspace }}/build
       shell: bash
       run: |
-        cmake "${{ github.workspace }}/bindiff" -G Ninja \
+        cmake -S bindiff -B build/out -G Ninja \
           "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
-          "-DIdaSdk_ROOT_DIR=${{ runner.workspace }}/build/idasdk_teams82"
+          -DCMAKE_INSTALL_PREFIX=build/out \
+          -DBINDIFF_BINEXPORT_DIR=binexport \
+          "-DIdaSdk_ROOT_DIR=build/ida/${{ env.PATH_TO_IDASDK_CONTENT }}"
 
     - name: Build
-      working-directory: ${{ runner.workspace }}/build
+      working-directory: build/out
       shell: bash
       run: cmake --build . --config "${BUILD_TYPE}"
 
     - name: Test
-      working-directory: ${{ runner.workspace }}/build
+      working-directory: build/out
       shell: bash
       run: ctest --build-config "${BUILD_TYPE}" --output-on-failure -R '^[A-Z]'
 
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4
       with:
         name: BinDiff-${{ runner.os }}
         path: |
-          ${{ runner.workspace }}/build/bindiff
-          ${{ runner.workspace }}/build/ida/bindiff*
-          ${{ runner.workspace }}/build/tools/bindiff*
+          build/out/bindiff
+          build/out/ida/bindiff*
+          build/out/tools/bindiff*
