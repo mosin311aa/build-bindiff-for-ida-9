@@ -44,7 +44,7 @@ jobs:
       run: |
         mkdir -p build/out build/ida
         curl -L -o build/idasdk.zip "${{ env.URL_TO_IDASDK_ZIP }}"
-        echo "${{ env.SHA256_IDASDK_ZIP }}  build/idasdk.zip" | sha256sum -c -
+        echo "${{ env.SHA256_IDASDK_ZIP }}  build/idasdk.zip" | shasum -a 256 --check -
         if [ $? -ne 0 ]; then
           echo "[!] SHA256 checksum does not match. Aborting."
           exit 1
@@ -73,16 +73,24 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       uses: rui314/setup-mold@v1
 
+    - name: Install boost
+      uses: MarkusJx/install-boost@v2
+      id: install-boost
+      with:
+        boost_version: 1.83.0
+        platform_version: ${{ matrix.os == 'windows-latest' && '2022' || matrix.os == 'ubuntu-latest' && '20.04' || matrix.os == 'macos-latest' && '11' }}
+        toolset: ${{ matrix.os == 'windows-latest' && 'msvc' || matrix.os == 'ubuntu-latest' && 'gcc' || matrix.os == 'macos-latest' && 'clang' }}
+
     - name: Configure CMake
       shell: bash
+      env:
+        BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
       run: |
         cmake -S bindiff -B build/out -G Ninja \
           "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
           -DCMAKE_INSTALL_PREFIX=build/out \
           -DBINDIFF_BINEXPORT_DIR=binexport \
           "-DIdaSdk_ROOT_DIR=build/ida/${{ env.PATH_TO_IDASDK_CONTENT }}"
-          -DBOOST_ROOT=binexport/boost_parts \
-          -DCMAKE_PREFIX_PATH=binexport/boost_parts
 
     - name: Build
       working-directory: build/out
