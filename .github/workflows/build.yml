@@ -90,7 +90,7 @@ jobs:
           "-DCMAKE_BUILD_TYPE=${BUILD_TYPE}" \
           -DCMAKE_INSTALL_PREFIX=build/out \
           -DBINDIFF_BINEXPORT_DIR=binexport \
-          "-DIdaSdk_ROOT_DIR=build/ida/${{ env.PATH_TO_IDASDK_CONTENT }}"
+          "-DIdaSdk_ROOT_DIR=${PWD}/build/ida/${{ env.PATH_TO_IDASDK_CONTENT }}"
 
     - name: Build
       working-directory: build/out
