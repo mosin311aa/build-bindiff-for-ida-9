@@ -80,6 +80,7 @@ jobs:
         boost_version: 1.83.0
         platform_version: ${{ matrix.os == 'windows-latest' && '2022' || matrix.os == 'ubuntu-latest' && '22.04' || matrix.os == 'macos-latest' && '14' }}
         toolset: ${{ matrix.os == 'windows-latest' && 'msvc' || matrix.os == 'ubuntu-latest' && 'gcc' || matrix.os == 'macos-latest' && 'clang' }}
+        arch: ${{ matrix.os != 'macos-latest' && 'x86' || matrix.os == 'macos-latest' && 'aarch64' }}
 
     - name: Configure CMake
       shell: bash
@@ -91,8 +92,8 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=build/out \
           -DBINDIFF_BINEXPORT_DIR=binexport \
           "-DIdaSdk_ROOT_DIR=${PWD}/build/ida/${{ env.PATH_TO_IDASDK_CONTENT }}" \
-          -DBoost_INCLUDE_DIR=${{ steps.install-boost.outputs.BOOST_ROOT }}/include \
-          -DBoost_LIBRARY_DIRS=${{ steps.install-boost.outputs.BOOST_ROOT }}/lib
+          -DBoost_INCLUDE_DIR="${{ steps.install-boost.outputs.BOOST_ROOT }}/include" \
+          -DBoost_LIBRARY_DIRS="${{ steps.install-boost.outputs.BOOST_ROOT }}/lib"
 
     - name: Build
       working-directory: build/out
