@@ -33,6 +33,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: google/binexport
+        ref: 6cce9b1f8cace75a801611fec2187aafa661e3eb
         path: binexport
 
     - name: Install ninja-build tool
@@ -111,5 +112,6 @@ jobs:
         name: BinDiff-ForIDASDK-${{ env.IDASDK_VERSION }}-${{ runner.os }}
         path: |
           build/out/bindiff
+          build/out/bindiff*
           build/out/ida/bindiff*
           build/out/tools/bindiff*
