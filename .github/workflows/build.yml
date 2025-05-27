@@ -19,9 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-latest
-        - os: macos-latest
-        - os: windows-latest
+        - os: ubuntu-24.04
+        - os: ubuntu-22.04
+        - os: macos-14
+        - os: macos-13
+        - os: windows-2022
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -48,7 +50,7 @@ jobs:
       uses: aseprite/get-ninja@main
 
     - name: Get idasdk
-      if: matrix.os != 'windows-latest'
+      if: matrix.os != 'windows-2022'
       shell: bash
       run: |
         mkdir -p build/out build/ida
@@ -61,7 +63,7 @@ jobs:
         unzip -q build/idasdk.zip -d build/ida/
 
     - name: Get idasdk (Windows)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       shell: pwsh
       run: |
         mkdir -p build\out
@@ -75,11 +77,11 @@ jobs:
         Expand-Archive -Path "build\idasdk.zip" -DestinationPath "build\ida\" -Force
 
     - name: Enable Developer Command Prompt (Windows)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       uses: ilammy/msvc-dev-cmd@v1.12.1
 
     - name: Enable mold linker (Linux)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
       uses: rui314/setup-mold@v1
 
     - name: Install boost
@@ -87,9 +89,9 @@ jobs:
       id: install-boost
       with:
         boost_version: 1.83.0
-        platform_version: ${{ matrix.os == 'windows-latest' && '2022' || matrix.os == 'ubuntu-latest' && '22.04' || matrix.os == 'macos-latest' && '14' }}
-        toolset: ${{ matrix.os == 'windows-latest' && 'msvc' || matrix.os == 'ubuntu-latest' && 'gcc' || matrix.os == 'macos-latest' && 'clang' }}
-        arch: ${{ matrix.os != 'macos-latest' && 'x86' || matrix.os == 'macos-latest' && 'aarch64' }}
+        platform_version: ${{ matrix.os == 'windows-2022' && '2022' || matrix.os == 'ubuntu-24.04' && '22.04' || matrix.os == 'ubuntu-22.04' && '22.04' || matrix.os == 'macos-14' && '14' || matrix.os == 'macos-13' && '13' }}
+        toolset: ${{ matrix.os == 'windows-2022' && 'msvc' || matrix.os == 'ubuntu-24.04' && 'gcc' || matrix.os == 'ubuntu-22.04' && 'gcc' || matrix.os == 'macos-14' && 'clang' || matrix.os == 'macos-13' && 'clang' }}
+        arch: ${{ matrix.os != 'macos-14' && 'x86' || matrix.os == 'macos-14' && 'aarch64' }}
 
     - name: Configure CMake
       shell: bash
@@ -117,7 +119,7 @@ jobs:
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: BinDiff-IDA-${{ env.IDA_VERSION_FOR_ARTIFACT_NAME }}-${{ runner.os }}
+        name: BinDiff-IDA-${{ env.IDA_VERSION_FOR_ARTIFACT_NAME }}-${{ matrix.os }}
         path: |
           build/out/bindiff
           build/out/bindiff.exe
@@ -151,7 +153,7 @@ jobs:
     - name: Upload Build Artifacts (binexport)
       uses: actions/upload-artifact@v4
       with:
-        name: BinExport-IDA-${{ env.IDA_VERSION_FOR_ARTIFACT_NAME }}-${{ runner.os }}
+        name: BinExport-IDA-${{ env.IDA_VERSION_FOR_ARTIFACT_NAME }}-${{ matrix.os }}
         path: |
           build/out/_deps/binexport-build/binaryninja/binexport*
           build/out/_deps/binexport-build/ida/binexport*
